@@ -27,7 +27,7 @@ void inicializar(LSEOrdenada* lista1, LSEOrdenada* lista2, LSEOrdenada* lista3){
 }
 
 int isEmpty(LSEOrdenada lista){
-    if(lista.inicio == NULL){
+    if(lista.qtd == 0){
         return 1;
     }
     else{
