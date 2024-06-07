@@ -96,3 +96,12 @@ void alterar(FILE* arq, NO* tabelaHashing[]) {
 }
 
 
+void fecharArquivo(FILE* arq) {
+	/* Apagar, fisicamente, os registros que foram deletados logicamente.
+	* 1 - Criar um arquivo novo (vazio).
+	* 2 - Copiar todos os registros de STATUS igual a 1 do arquivo de carros para o arquivo novo.
+	* 3 - Fechar os dois arquivos.
+	* 4 - Remover o arquivo de carros.
+	* 5 - Renomear o arquivo novo com o nome "carros.dat".
+	*/
+}
