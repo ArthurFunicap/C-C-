@@ -77,23 +77,71 @@ FILE* prepararArquivo(char nome[]) {
 }
 
 void fecharArquivo(FILE* arq) {
-	/* Apagar, fisicamente, os registros que foram deletados logicamente.
-	* 1 - Criar um arquivo novo (vazio).
-	* 2 - Copiar todos os registros de STATUS igual a 1 do arquivo de carros para o arquivo novo.
-	* 3 - Fechar os dois arquivos.
-	* 4 - Remover o arquivo de carros.
-	* 5 - Renomear o arquivo novo com o nome "carros.dat".
-	*/
+	FILE* copia;
+	CARRO* carroCopia;
+	copia = prepararArquivo("carrosCopia.dat");
+	
+	fseek(arq, sizeof(CARRO), SEEK_SET);
+	
+	while(feof(arq) == 0){
+	    fread(carroCopia, sizeof(CARRO), 1, arq);
+	    
+	    if(carroCopia->status == 1){
+	        fseek(copia, sizeof(CARRO), SEEK_END);
+	        fwrite(carroCopia, sizeof(CARRO), 1, copia);
+	    }
+	}
+	
+	fclose(arq);
+	fclose(copia);
+	
+	remove("carros.dat");
+	rename("carrosCopia.dat", "carros.dat");
 }
 
 void criarIndice(FILE* arq, NO* tabelaHashing[]) {
-	/* preencher a tabela de hashing com as chaves dos registros que est�o armazenados no arquivo
-	1 - Ler o arquivo registro a registro at� o final
-	2 - Para cada registro lido, aplicar a fun��o de hashing � chave (ou seja, a placa)
-	3 - O resultado da fun��o indica a posi��o na tabela onde a chave ser� inserida
-	4 - Criar n�, preencher com a chave e a posi��o dela no arquivo e inserir na tabela, 
-	na lista encadeada correspondente, de forma que a lista permane�a ordenada.
-	*/
+	CARRO* carro;
+
+	fseek(arq, sizeof(CARRO), SEEK_SET);
+
+	while(feof(arq) == 0){
+		fread(carro, sizeof(carro), 1, arq);
+
+		int posTabela = hashing(carro->placa);
+
+		NO* novoNo = (NO*)malloc(sizeof(NO));
+		NO* aux, *anterior;
+
+		strcpy(novoNo->placa, carro->placa);
+		novoNo->posicao = posArq;
+		novoNo->prox = NULL;
+
+		posArq++;
+
+		if(tabelaHashing[posTabela] == NULL){
+			tabelaHashing[posTabela] = novoNo;
+		}
+		else if(strcmp(tabelaHashing[posTabela]->placa, carro->placa) > 0){
+			novoNo->prox = tabelaHashing[posTabela];
+			tabelaHashing[posTabela] = novoNo;
+		}
+		else{
+			anterior = tabelaHashing[posTabela];
+			aux = tabelaHashing[posTabela]->prox;
+
+			while(aux != NULL){
+				if(strcmp(aux->placa, carro->placa) > 0){
+					novoNo->prox = aux;
+					anterior->prox = novoNo;
+					break;
+				}
+				else{
+					anterior = aux;
+					aux = aux->prox;
+				}
+			}
+		}
+	}
 }
 
 void desalocarIndice(NO* tabelaHashing[]) {
@@ -118,7 +166,10 @@ int buscar(NO* tabelaHashing[], char placa[]) {
 	NO* aux = tabelaHashing[posicao];
 
 	while(aux != NULL){
-		if(strcmp(aux->placa, placa) == 0){
+		if(strcmp(aux->placa, placa) > 0){
+			break;
+		}
+		else if(strcmp(aux->placa, placa) == 0){
 			return aux->posicao;
 		}
 		else{
@@ -132,20 +183,22 @@ void inserirTabelaHash(NO* tabelaHashing[], char placa[], int pos) {
 	NO* novo = (NO*)malloc(sizeof(NO));
 	NO* aux, *anterior;
 
-	if(tabelaHashing[pos] == NULL){
-		strcpy(tabelaHashing[pos]->placa, placa);
-		tabelaHashing[pos]->posicao = pos;
-		tabelaHashing[pos]->prox = NULL;
+	int posTabela = hashing(placa);
+
+	if(tabelaHashing[posTabela] == NULL){
+		strcpy(tabelaHashing[posTabela]->placa, placa);
+		tabelaHashing[posTabela]->posicao = pos;
+		tabelaHashing[posTabela]->prox = NULL;
 	}
-	else if(strcmp(tabelaHashing[pos]->placa, placa) > 0){
+	else if(strcmp(tabelaHashing[posTabela]->placa, placa) > 0){
 		strcpy(novo->placa, placa);
 		novo->posicao = pos;
-		novo->prox = tabelaHashing[pos];
-		tabelaHashing[pos] = novo;
+		novo->prox = tabelaHashing[posTabela];
+		tabelaHashing[posTabela] = novo;
 	}
 	else{
-		anterior = tabelaHashing[pos];
-		aux = tabelaHashing[pos]->prox;
+		anterior = tabelaHashing[posTabela];
+		aux = tabelaHashing[posTabela]->prox;
 
 		while(aux != NULL){
 			if(strcmp(aux->placa, placa) == 0){
@@ -236,8 +289,6 @@ void cadastrar(FILE* arq, NO* tabelaHashing[]) {
 		fgets(cor, 15, stdin);
 		strcpy(novo->cor, cor);
 		novo->status = 1;
-
-		pos = hashing(placa);
 
 		if(fseek(arq, sizeof(CARRO), SEEK_END) == 0){
 			fwrite(novo, sizeof(CARRO), 1, arq);
