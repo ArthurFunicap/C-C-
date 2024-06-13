@@ -1,4 +1,3 @@
-/* Arquivo com acesso direto via hashing */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +10,7 @@ typedef struct carro {
 	char marca[15];
 	char modelo[15];
 	char cor[15];
-	int status;  // 1 - ativo ou 0 - removido
+	int status;
 } CARRO;
 
 typedef struct noTabela {
@@ -29,10 +28,14 @@ void alterar(FILE* arq, NO* tabelaHashing[]);
 void remover(FILE* arq, NO* tabelaHashing[]);
 void exibirCadastro(FILE* arq);
 void criarIndice(FILE* arq, NO* tabelaHashing[]);
+void desalocarIndice(NO* tabelaHashing[]);
 void inserirTabelaHash(NO* tabelaHashing[], char placa[], int pos);
 int hashing(char placa[]);
 void exibirOpcoes();
-void limparBuffer();
+void limparBuffer(){
+	int c;
+	while((c = getchar()) != '\n' && c != EOF);
+}
 
 int main() {
 	char nomeArq[] = "carros.dat";
@@ -46,7 +49,8 @@ int main() {
 		criarIndice(cadastro, tabelaHashing);
 		do {
 			exibirOpcoes();
-			scanf("%d",&op); fflush(stdin);
+			scanf("%d",&op);
+			getchar();
 			switch (op) {
 			case 1: cadastrar(cadastro, tabelaHashing);
 				break;
@@ -61,7 +65,8 @@ int main() {
 			case 0: fecharArquivo(cadastro);
 				desalocarIndice(tabelaHashing);
 				break;
-			default: printf("Opcao invalida \n");
+			default: printf("Opcao invalida\n");
+				break;
 			}
 		} while (op != 0);
 	}
@@ -78,17 +83,14 @@ FILE* prepararArquivo(char nome[]) {
 
 void fecharArquivo(FILE* arq) {
 	FILE* copia;
-	CARRO* carroCopia;
+	CARRO carroCopia;
 	copia = prepararArquivo("carrosCopia.dat");
 	
-	fseek(arq, sizeof(CARRO), SEEK_SET);
+	rewind(arq);
 	
-	while(feof(arq) == 0){
-	    fread(carroCopia, sizeof(CARRO), 1, arq);
-	    
-	    if(carroCopia->status == 1){
-	        fseek(copia, sizeof(CARRO), SEEK_END);
-	        fwrite(carroCopia, sizeof(CARRO), 1, copia);
+	while(fread(&carroCopia, sizeof(CARRO), 1, arq)){
+	    if(carroCopia.status == 1){
+	        fwrite(&carroCopia, sizeof(CARRO), 1, copia);
 	    }
 	}
 	
@@ -100,53 +102,60 @@ void fecharArquivo(FILE* arq) {
 }
 
 void criarIndice(FILE* arq, NO* tabelaHashing[]) {
-	CARRO* carro;
+	CARRO carro;
 
-	fseek(arq, sizeof(CARRO), SEEK_SET);
+	rewind(arq);
 
-	while(feof(arq) == 0){
-		fread(carro, sizeof(carro), 1, arq);
-
-		int posTabela = hashing(carro->placa);
+	while(fread(&carro, sizeof(carro), 1, arq)){
+		int posTabela = hashing(carro.placa);
 
 		NO* novoNo = (NO*)malloc(sizeof(NO));
 		NO* aux, *anterior;
 
-		strcpy(novoNo->placa, carro->placa);
+		aux = tabelaHashing[posTabela];
+		anterior = NULL;
+
+		strcpy(novoNo->placa, carro.placa);
 		novoNo->posicao = posArq;
 		novoNo->prox = NULL;
 
-		posArq++;
-
-		if(tabelaHashing[posTabela] == NULL){
-			tabelaHashing[posTabela] = novoNo;
-		}
-		else if(strcmp(tabelaHashing[posTabela]->placa, carro->placa) > 0){
-			novoNo->prox = tabelaHashing[posTabela];
-			tabelaHashing[posTabela] = novoNo;
-		}
-		else{
-			anterior = tabelaHashing[posTabela];
-			aux = tabelaHashing[posTabela]->prox;
-
-			while(aux != NULL){
-				if(strcmp(aux->placa, carro->placa) > 0){
-					novoNo->prox = aux;
-					anterior->prox = novoNo;
-					break;
+		while(aux != NULL){
+			if(strcmp(aux->placa, carro.placa) > 0){
+				if(anterior == NULL){
+					novoNo->prox = tabelaHashing[posTabela];
+					tabelaHashing[posTabela] = novoNo;
 				}
 				else{
-					anterior = aux;
-					aux = aux->prox;
+					novoNo->prox = aux;
+					anterior->prox = novoNo;
 				}
 			}
+			else{
+				anterior = aux;
+				aux = aux->prox;
+			}
 		}
+
+		if(aux == NULL){
+			tabelaHashing[posTabela] = novoNo;
+		}
+		posArq++;
 	}
 }
 
 void desalocarIndice(NO* tabelaHashing[]) {
-	/* Desalocar os n�s que comp�em as listas da tabela de hashing.
-	*/
+	NO* aux;
+
+	for(int i = 0; i < N; i++){
+		if(tabelaHashing[i] != NULL){
+			while(tabelaHashing[i] != NULL){
+				aux = tabelaHashing[i];
+				tabelaHashing[i] = tabelaHashing[i]->prox;
+
+				free(aux);
+			}
+		}
+	}
 }
 
 void exibirOpcoes() {
@@ -166,10 +175,8 @@ int buscar(NO* tabelaHashing[], char placa[]) {
 	NO* aux = tabelaHashing[posicao];
 
 	while(aux != NULL){
-		if(strcmp(aux->placa, placa) > 0){
-			break;
-		}
-		else if(strcmp(aux->placa, placa) == 0){
+		if(strcmp(aux->placa, placa) == 0){
+			printf("%d\n", aux->posicao);
 			return aux->posicao;
 		}
 		else{
@@ -185,12 +192,15 @@ void inserirTabelaHash(NO* tabelaHashing[], char placa[], int pos) {
 
 	int posTabela = hashing(placa);
 
-	if(tabelaHashing[posTabela] == NULL){
-		strcpy(tabelaHashing[posTabela]->placa, placa);
-		tabelaHashing[posTabela]->posicao = pos;
-		tabelaHashing[posTabela]->prox = NULL;
+	aux = tabelaHashing[posTabela];
+
+	if(aux == NULL){
+		strcpy(novo->placa, placa);
+		novo->posicao = pos;
+		novo->prox = NULL;
+		tabelaHashing[posTabela] = novo;
 	}
-	else if(strcmp(tabelaHashing[posTabela]->placa, placa) > 0){
+	else if(aux->placa, placa > 0){
 		strcpy(novo->placa, placa);
 		novo->posicao = pos;
 		novo->prox = tabelaHashing[posTabela];
@@ -198,7 +208,7 @@ void inserirTabelaHash(NO* tabelaHashing[], char placa[], int pos) {
 	}
 	else{
 		anterior = tabelaHashing[posTabela];
-		aux = tabelaHashing[posTabela]->prox;
+		aux = aux->prox;
 
 		while(aux != NULL){
 			if(strcmp(aux->placa, placa) == 0){
@@ -268,9 +278,9 @@ void cadastrar(FILE* arq, NO* tabelaHashing[]) {
 	char cor[15];
 	int status;
 
-	int pos;
 	printf("Digite a placa do carro: ");
 	fgets(placa, 8, stdin);
+	limparBuffer();
 
 	int retorno = buscar(tabelaHashing, placa);
 
@@ -278,28 +288,28 @@ void cadastrar(FILE* arq, NO* tabelaHashing[]) {
 		printf("Veículo já cadastrado!\n");
 	}
 	else{
-		CARRO* novo = (CARRO*)malloc(sizeof(CARRO));
+		CARRO novo;
+
+		strcpy(novo.placa, placa);
 		printf("Digite a marca do carro: ");
 		fgets(marca, 15, stdin);
-		strcpy(novo->marca, marca);
+		limparBuffer();
+		strcpy(novo.marca, marca);
 		printf("Digite o modelo do carro: ");
 		fgets(modelo, 15, stdin);
-		strcpy(novo->modelo, modelo);
+		limparBuffer();
+		strcpy(novo.modelo, modelo);
 		printf("Digite a cor do carro: ");
 		fgets(cor, 15, stdin);
-		strcpy(novo->cor, cor);
-		novo->status = 1;
+		limparBuffer();
+		strcpy(novo.cor, cor);
+		novo.status = 1;
 
-		if(fseek(arq, sizeof(CARRO), SEEK_END) == 0){
-			fwrite(novo, sizeof(CARRO), 1, arq);
-
-			inserirTabelaHash(tabelaHashing, placa, posArq);
-			printf("Veículo cadastrado!\n");
-			posArq++;
-		}
-		else{
-			printf("Erro na gravação do arquivo!\n");
-		}
+		fseek(arq, 0, SEEK_END);
+		fwrite(&novo, sizeof(CARRO), 1, arq);
+		inserirTabelaHash(tabelaHashing, placa, posArq);
+		printf("Veículo cadastrado!\n");
+		posArq++;
 	}
 }
 
@@ -308,6 +318,7 @@ void consultar(FILE* arq, NO* tabelaHashing[]) {
 
 	printf("Digite a placa do carro: ");
 	fgets(placa, 8, stdin);
+	limparBuffer();
 
 	int retorno = buscar(tabelaHashing, placa);
 
@@ -315,20 +326,15 @@ void consultar(FILE* arq, NO* tabelaHashing[]) {
 		printf("Veículo não encontrado!\n");
 	}
 	else{
-		fseek(arq, sizeof(CARRO), SEEK_SET);
+		fseek(arq, retorno*sizeof(CARRO), SEEK_SET);
+		CARRO carro;
+		fread(&carro, sizeof(CARRO), 1, arq);
 
-		while(feof(arq) == 0){
-			CARRO* carro;
-			fread(carro, sizeof(CARRO), 1, arq);
-
-			if(strcmp(carro->placa, placa) == 0){
-				printf("Marca: %s\n", carro->marca);
-				printf("Modelo: %s\n", carro->modelo);
-				printf("Cor: %s\n", carro->cor);
-				printf("Status: %s\n", carro->status);
-				break;
-			}
-		}
+		printf("Marca: %s\n", carro.marca);
+		printf("Modelo: %s\n", carro.modelo);
+		printf("Cor: %s\n", carro.cor);
+		printf("Status: %d\n", carro.status);
+		printf("\n");
 	}
 }
 
@@ -337,6 +343,7 @@ void alterar(FILE* arq, NO* tabelaHashing[]) {
 
 	printf("Digite a placa do carro: ");
 	fgets(placa, 8, stdin);
+	limparBuffer();
 
 	int retorno = buscar(tabelaHashing, placa);
 
@@ -344,18 +351,58 @@ void alterar(FILE* arq, NO* tabelaHashing[]) {
 		printf("Veículo não encontrado!\n");
 	}
 	else{
-		CARRO* carroAlterar;
+		CARRO carroAlterar;
+		int alterar;
 
 		fseek(arq, retorno * sizeof(CARRO), SEEK_SET);
-		fread(carroAlterar, sizeof(CARRO), 1, arq);
+		fread(&carroAlterar, sizeof(CARRO), 1, arq);
 
 		printf("Dados do carro:\n");
-		printf("Marca: %s\n", carroAlterar->marca);
-		printf("Modelo: %s\n", carroAlterar->modelo);
-		printf("Cor: %s\n", carroAlterar->cor);
-		printf("Status: %s\n", carroAlterar->status);
+		printf("Marca: %s\n", carroAlterar.marca);
+		printf("Modelo: %s\n", carroAlterar.modelo);
+		printf("Cor: %s\n", carroAlterar.cor);
 
-		
+		printf("Deseja alterar a marca? (1 - Sim/2 - Nao): ");
+		scanf("%d", &alterar);
+		getchar();
+
+		if(alterar == 1){
+			char marca[15];
+			printf("Digite a nova marca: ");
+			fgets(marca, 15, stdin);
+			limparBuffer();
+
+			strcpy(carroAlterar.marca, marca);
+		}
+
+		printf("Deseja alterar o modelo? (1 - Sim/2 - Nao): ");
+		scanf("%d", &alterar);
+		getchar();
+
+		if(alterar == 1){
+			char modelo[15];
+			printf("Digite o novo modelo: ");
+			fgets(modelo, 15, stdin);
+			limparBuffer();
+
+			strcpy(carroAlterar.modelo, modelo);
+		}
+
+		printf("Deseja alterar a cor? (1 - Sim/2 - Nao): ");
+		scanf("%d", &alterar);
+		getchar();
+
+		if(alterar == 1){
+			char cor[15];
+			printf("Digite a nova cor: ");
+			fgets(cor, 15, stdin);
+			limparBuffer();
+
+			strcpy(carroAlterar.cor, cor);
+		}
+
+		fseek(arq, retorno*sizeof(CARRO), SEEK_SET);
+		fwrite(&carroAlterar, sizeof(CARRO), 1, arq);
 	}
 }
 
@@ -364,6 +411,7 @@ void remover(FILE* arq, NO* tabelaHashing[]) {
 
 	printf("Digite a placa do carro: ");
 	fgets(placa, 8, stdin);
+	limparBuffer();
 
 	int retorno = buscar(tabelaHashing, placa);
 
@@ -372,25 +420,26 @@ void remover(FILE* arq, NO* tabelaHashing[]) {
 	}
 	else{
 		int remover;
-		CARRO* carro;
-		fseek(arq, sizeof(CARRO), retorno);
-		fread(carro, sizeof(CARRO), 1, arq);
+		CARRO carro;
+		fseek(arq, retorno*sizeof(CARRO), SEEK_SET);
+		fread(&carro, sizeof(CARRO), 1, arq);
 
 		printf("Dados do carro:\n");
-		printf("Placa: %s\n", carro->placa);
-		printf("Marca: %s\n", carro->marca);
-		printf("Modelo: %s\n", carro->modelo);
-		printf("Cor: %s\n", carro->cor);
+		printf("Placa: %s\n", carro.placa);
+		printf("Marca: %s\n", carro.marca);
+		printf("Modelo: %s\n", carro.modelo);
+		printf("Cor: %s\n", carro.cor);
 		printf("Deseja remover o carro? (1 - sim / 0 - não)\n");
 		scanf("%d", &remover);
+		getchar();
 
 		if(remover == 1){
-			carro->status = 0;
+			carro.status = 0;
 
 			int posTabela = hashing(placa);
 
 			fseek(arq, retorno*sizeof(CARRO), SEEK_SET);
-			fwrite(carro, sizeof(CARRO), 1, arq);
+			fwrite(&carro, sizeof(CARRO), 1, arq);
 
 			removerTabelaHash(tabelaHashing, placa, posTabela);
 			printf("Veículo removido!\n");
@@ -405,23 +454,16 @@ void remover(FILE* arq, NO* tabelaHashing[]) {
 }
 
 void exibirCadastro(FILE* arq) {
-	CARRO* carro;
-	fseek(arq, sizeof(CARRO), SEEK_SET);
+	CARRO carro;
+	fseek(arq, 0, SEEK_SET);
 
-	while(feof(arq) == 0){
-		fread(carro, sizeof(CARRO), 1, arq);
-
-		if(carro->status == 1){
+	while(fread(&carro, sizeof(CARRO), 1, arq)){
+		if(carro.status == 1){
 			printf("\n");
-			printf("Placa: %s\n", carro->placa);
-			printf("Marca: %s\n", carro->marca);
-			printf("Modelo: %s\n", carro->modelo);
-			printf("Cor: %s\n");
+			printf("Placa: %s\n", carro.placa);
+			printf("Marca: %s\n", carro.marca);
+			printf("Modelo: %s\n", carro.modelo);
+			printf("Cor: %s\n", carro.cor);
 		}
 	}
-}
-
-void limparBuffer(){
-	int c;
-	while( (c = getchar()) != '\n' && c != EOF);
 }
