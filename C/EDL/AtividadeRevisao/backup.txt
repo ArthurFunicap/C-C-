@@ -1,0 +1,39 @@
+void cadastrarAluno (FILE* arq) {
+    // Em desenvolvimento: Solicita os dados de um aluno e grava no final do arquivo
+    // OBS: Todo novo registro é gravado no arquivo com status igual a 1 (ativo)
+}
+
+
+void exibirTodos (FILE* arq) {
+    // Em desenvolvimento: Exibe os dados de todos os alunos cadastrados no arquivo
+}
+
+
+void exibirAluno(FILE* arq, char ra[]) {
+    // Em desenvolvimento: Busca no arquivo um aluno com o RA dado. Se encontrar, exibe os dados.
+    // Se não encontrar, informa que o aluno não pertence a turma.
+}
+
+
+void alterarMedia(FILE* arq, char ra[]) {
+    // Em desenvolvimento: Busca no arquivo um aluno com o RA dado. Se encontrar, altera a média.
+    // Se não encontrar, informa que o aluno não pertence a turma.
+}
+
+
+void alterarFaltas(FILE* arq, char ra[]) {
+    // Em desenvolvimento: Busca no arquivo um aluno com o RA dado. Se encontrar, altera as faltas.
+    // Se não encontrar, informa que o aluno não pertence a turma.
+}
+
+
+void removerAluno(FILE* arq, char ra[]) {
+    // Em desenvolvimento: Busca no arquivo um aluno com o RA dado. 
+    // Se encontrar, remove logicamente o aluno, seja, altera o status para 0 (deletado).
+    // Se não encontrar, informa que o aluno não pertence a turma.
+}
+
+
+void limparArquivo(FILE* arq) {
+    // Em desenvolvimento: remove fisicamente do arquivo os registros de status 0.
+}
